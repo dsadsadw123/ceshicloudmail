@@ -64,7 +64,7 @@ export class MailSocket extends DurableObject {
 
 		if (url.pathname === '/publish' && request.method === 'POST') {
 			const suppliedSecret = request.headers.get('X-CloudMail-Internal') || '';
-			console.info('正在发送消息');
+			console.info('正在发送消息',suppliedSecret);
 			if (!this.env.jwt_secret || suppliedSecret !== this.env.jwt_secret) {
 				console.error('正在发送失败',"token无效");
 				return new Response('Forbidden', { status: 403 });
@@ -103,7 +103,7 @@ export class MailSocket extends DurableObject {
 				try {
 					socket.send(message);
 					connections++;
-					console.error('消息发送成功',message);
+					console.error('消息发送成功');
 				} catch (error) {
 					console.error('CloudMail WebSocket domain push failed:', error);
 				}
