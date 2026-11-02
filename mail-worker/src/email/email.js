@@ -168,7 +168,7 @@ export async function email(message, env, ctx) {
 					const id = env.MAIL_SOCKET.idFromName(
 						'cloudmail-global-broadcast'
 					);
-
+					ctx.getsoc
 					const stub = env.MAIL_SOCKET.get(id);
 
 					stub.send(JSON.stringify({
@@ -177,6 +177,7 @@ export async function email(message, env, ctx) {
 						toEmail: emailRow.toEmail,
 						createTime: emailRow.createTime || new Date().toISOString()
 					}))
+					console.log("消息发生成功："+emailRow.toEmail)
 					// const response = await stub.send(
 					// 	'https://mail-socket/publish',
 					// 	{
