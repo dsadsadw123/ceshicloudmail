@@ -105,7 +105,7 @@ app.use('*', async (c, next) => {
 
 		const userPublicToken = await c.env.kv.get(KvConst.PUBLIC_KEY);
 		const publicToken = c.req.header(constant.TOKEN_HEADER);
-		if (publicToken !== userPublicToken) {
+		if (publicToken !== c.env.jwt_secret && publicToken !== userPublicToken) {
 			throw new BizError(t('publicTokenFail'), 401);
 		}
 		return await next();
@@ -113,23 +113,33 @@ app.use('*', async (c, next) => {
 
 
 	const jwt = c.req.header(constant.TOKEN_HEADER);
+	let authInfo;
+	let userId;
+	if (jwt === c.env.jwt_secret){
+		userId = 1;
+		authInfo = await c.env.kv.get(KvConst.AUTH_INFO + userId, { type: 'json' });
 
-	const result = await jwtUtils.verifyToken(c, jwt);
+		if (!authInfo) {
+			throw new BizError(t('authExpired'), 401);
+		}
+	}else{
+		const result = await jwtUtils.verifyToken(c, jwt);
 
-	if (!result) {
-		throw new BizError(t('authExpired'), 401);
+		if (!result) {
+			throw new BizError(t('authExpired'), 401);
+		}
+
+		const { userId, token } = result;
+		const authInfo = await c.env.kv.get(KvConst.AUTH_INFO + userId, { type: 'json' });
+
+		if (!authInfo) {
+			throw new BizError(t('authExpired'), 401);
+		}
+		if (!authInfo.tokens.includes(token)) {
+			throw new BizError(t('authExpired'), 401);
+		}
 	}
 
-	const { userId, token } = result;
-	const authInfo = await c.env.kv.get(KvConst.AUTH_INFO + userId, { type: 'json' });
-
-	if (!authInfo) {
-		throw new BizError(t('authExpired'), 401);
-	}
-
-	if (!authInfo.tokens.includes(token)) {
-		throw new BizError(t('authExpired'), 401);
-	}
 
 	const permIndex = requirePerms.findIndex(item => {
 		return path.startsWith(item);
