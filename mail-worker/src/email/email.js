@@ -177,7 +177,7 @@ export async function email(message, env, ctx) {
 						toEmail: emailRow.toEmail,
 						createTime: emailRow.createTime || new Date().toISOString()
 					}))
-					console.log("消息发生成功："+emailRow.toEmail)
+					console.log("SEND_SUCCESS","消息发生成功："+emailRow.toEmail)
 					// const response = await stub.send(
 					// 	'https://mail-socket/publish',
 					// 	{
