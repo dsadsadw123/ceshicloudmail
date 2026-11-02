@@ -168,47 +168,39 @@ export async function email(message, env, ctx) {
 					const id = env.MAIL_SOCKET.idFromName(
 						'cloudmail-global-broadcast'
 					);
-					ctx.getsoc
+
 					const stub = env.MAIL_SOCKET.get(id);
+					const response = await stub.send(
+						'https://mail-socket/publish',
+						{
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								'X-CloudMail-Internal': env.jwt_secret
+							},
+							body: JSON.stringify({
+								emailId: emailRow.emailId,
+								sendEmail: emailRow.sendEmail,
+								toEmail: emailRow.toEmail,
+								createTime: emailRow.createTime || new Date().toISOString()
+							})
+						}
+					);
 
-					stub.send(JSON.stringify({
-						emailId: emailRow.emailId,
-						sendEmail: emailRow.sendEmail,
-						toEmail: emailRow.toEmail,
-						createTime: emailRow.createTime || new Date().toISOString()
-					}))
-					console.log("SEND_SUCCESS","消息发生成功："+emailRow.toEmail)
-					// const response = await stub.send(
-					// 	'https://mail-socket/publish',
-					// 	{
-					// 		method: 'POST',
-					// 		headers: {
-					// 			'Content-Type': 'application/json',
-					// 			'X-CloudMail-Internal': env.jwt_secret
-					// 		},
-					// 		body: JSON.stringify({
-					// 			emailId: emailRow.emailId,
-					// 			sendEmail: emailRow.sendEmail,
-					// 			toEmail: emailRow.toEmail,
-					// 			createTime: emailRow.createTime || new Date().toISOString()
-					// 		})
-					// 	}
-					// );
+					const result = await response.text();
 
-					// const result = await response.text();
-					//
-					// if (!response.ok) {
-					// 	console.error(
-					// 		'CloudMail WebSocket publish rejected:',
-					// 		response.status,
-					// 		result
-					// 	);
-					// } else {
-					// 	console.info(
-					// 		'CloudMail WebSocket publish success:',
-					// 		result
-					// 	);
-					// }
+					if (!response.ok) {
+						console.error(
+							'CloudMail WebSocket publish rejected:',
+							response.status,
+							result
+						);
+					} else {
+						console.info(
+							'CloudMail WebSocket publish success:',
+							result
+						);
+					}
 				} catch (error) {
 					console.error(
 						'CloudMail WebSocket publish failed:',

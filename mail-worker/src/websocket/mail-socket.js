@@ -64,7 +64,9 @@ export class MailSocket extends DurableObject {
 
 		if (url.pathname === '/publish' && request.method === 'POST') {
 			const suppliedSecret = request.headers.get('X-CloudMail-Internal') || '';
+			console.info('正在发送消息');
 			if (!this.env.jwt_secret || suppliedSecret !== this.env.jwt_secret) {
+				console.error('正在发送失败',"token无效");
 				return new Response('Forbidden', { status: 403 });
 			}
 
@@ -72,14 +74,17 @@ export class MailSocket extends DurableObject {
 			try {
 				payload = await request.json();
 			} catch {
+				console.error('正在发送失败',"参数错误");
 				return Response.json({ success: false, message: 'Invalid JSON' }, { status: 400 });
 			}
 
-			const domain = getRecipientDomain(payload?.to);
+			const domain = getRecipientDomain(payload?.toEmail);
 			if (!domain) {
+				console.error('正在发送失败',"域名不存在");
 				return Response.json({ success: true, domain: null, connections: 0, message: 'Recipient domain unavailable' });
 			}
 
+			console.error('正在发送订阅',domain);
 			const message = JSON.stringify({
 				event: 'mail.received',
 				domain,
@@ -91,10 +96,14 @@ export class MailSocket extends DurableObject {
 			for (const socket of this.ctx.getWebSockets()) {
 				if (socket.readyState !== WebSocket.OPEN) continue;
 				const domains = readSubscriptions(socket);
-				if (!domains.includes(domain)) continue;
+				if (!domains.includes(domain)){
+					console.error('当前域名没有订阅',domain);
+					continue;
+				}
 				try {
 					socket.send(message);
 					connections++;
+					console.error('消息发送成功',message);
 				} catch (error) {
 					console.error('CloudMail WebSocket domain push failed:', error);
 				}
