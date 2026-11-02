@@ -32,9 +32,9 @@ function readSubscriptions(socket) {
 
 /**
  * Durable Object WebSocket hub. Clients authenticate at the Worker endpoint,
- * recipient domains are supplied in the WebSocket URL query string:
- * /ws?domain=example.com,example.org
- * Only mail addressed to a supplied domain is delivered to that socket.
+ * then subscribe to one or more recipient domains using a JSON message:
+ * {"action":"subscribe","domains":["example.com"]}
+ * Only mail addressed to a subscribed domain is delivered to that socket.
  */
 export class MailSocket extends DurableObject {
 	async fetch(request) {
@@ -45,39 +45,16 @@ export class MailSocket extends DurableObject {
 				return new Response('Expected WebSocket', { status: 426 });
 			}
 
-			// Domains are supplied at handshake time, e.g. ?domain=example.com,test.com.
-			const rawDomains = url.searchParams.get('domain') || '';
-			const requestedDomains = rawDomains.split(',').map(value => value.trim()).filter(Boolean);
-			if (requestedDomains.length === 0) {
-				return Response.json({
-					success: false,
-					message: 'The domain query parameter is required, e.g. ?domain=example.com,test.com'
-				}, { status: 400 });
-			}
-			if (requestedDomains.length > MAX_DOMAINS_PER_CONNECTION) {
-				return Response.json({
-					success: false,
-					message: `Maximum ${MAX_DOMAINS_PER_CONNECTION} domains per connection`
-				}, { status: 400 });
-			}
-
-			const normalizedDomains = requestedDomains.map(normalizeDomain);
-			if (normalizedDomains.some(domain => !domain)) {
-				return Response.json({ success: false, message: 'Invalid domain supplied' }, { status: 400 });
-			}
-			const domains = [...new Set(normalizedDomains)];
-
 			const pair = new WebSocketPair();
 			const client = pair[0];
 			const server = pair[1];
 			this.ctx.acceptWebSocket(server);
-			// Persist URL-provided subscriptions across Durable Object hibernation.
-			server.serializeAttachment({ domains });
+			server.serializeAttachment({ domains: [] });
 			server.send(JSON.stringify({
 				event: 'connected',
 				data: {
 					message: 'CloudMail WebSocket connected',
-					domains
+					instruction: 'Send {"action":"subscribe","domains":["example.com"]} to subscribe'
 				},
 				timestamp: new Date().toISOString()
 			}));
@@ -135,18 +112,59 @@ export class MailSocket extends DurableObject {
 			return;
 		}
 
-		// Domains are fixed for this connection and are supplied in the URL.
+		let command;
 		try {
-			socket.send(JSON.stringify({
-				event: 'error',
-				data: {
-					code: 'URL_SUBSCRIPTION_REQUIRED',
-					message: 'Pass domains in the WebSocket URL: /ws?domain=example.com,test.com'
-				}
-			}));
-		} catch (error) {
-			console.error('CloudMail WebSocket response failed:', error);
+			command = JSON.parse(typeof message === 'string' ? message : new TextDecoder().decode(message));
+		} catch {
+			socket.send(JSON.stringify({ event: 'error', data: { code: 'INVALID_JSON', message: 'Send a JSON command' } }));
+			return;
 		}
+
+		if (command?.action === 'subscribe') {
+			if (!Array.isArray(command.domains) || command.domains.length === 0) {
+				socket.send(JSON.stringify({ event: 'error', data: { code: 'DOMAINS_REQUIRED', message: 'domains must be a non-empty array' } }));
+				return;
+			}
+			if (command.domains.length > MAX_DOMAINS_PER_CONNECTION) {
+				socket.send(JSON.stringify({ event: 'error', data: { code: 'TOO_MANY_DOMAINS', message: `Maximum ${MAX_DOMAINS_PER_CONNECTION} domains per connection` } }));
+				return;
+			}
+
+			const domains = [...new Set(command.domains.map(normalizeDomain).filter(Boolean))];
+			if (domains.length === 0) {
+				socket.send(JSON.stringify({ event: 'error', data: { code: 'INVALID_DOMAINS', message: 'No valid domains supplied' } }));
+				return;
+			}
+			socket.serializeAttachment({ domains });
+			socket.send(JSON.stringify({
+				event: 'subscribed',
+				data: { domains },
+				timestamp: new Date().toISOString()
+			}));
+			return;
+		}
+
+		if (command?.action === 'unsubscribe') {
+			const current = readSubscriptions(socket);
+			const requested = Array.isArray(command.domains)
+				? command.domains.map(normalizeDomain).filter(Boolean)
+				: current;
+			const domains = current.filter(domain => !requested.includes(domain));
+			socket.serializeAttachment({ domains });
+			socket.send(JSON.stringify({
+				event: 'unsubscribed',
+				data: { domains },
+				timestamp: new Date().toISOString()
+			}));
+			return;
+		}
+
+		if (command?.action === 'subscriptions') {
+			socket.send(JSON.stringify({ event: 'subscriptions', data: { domains: readSubscriptions(socket) } }));
+			return;
+		}
+
+		socket.send(JSON.stringify({ event: 'error', data: { code: 'UNKNOWN_ACTION', message: 'Supported actions: subscribe, unsubscribe, subscriptions' } }));
 	}
 
 	async webSocketClose(socket, code, reason) {
