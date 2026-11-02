@@ -122,28 +122,60 @@ export class MailSocket extends DurableObject {
 
 		if (command?.action === 'subscribe') {
 			if (!Array.isArray(command.domains) || command.domains.length === 0) {
-				socket.send(JSON.stringify({ event: 'error', data: { code: 'DOMAINS_REQUIRED', message: 'domains must be a non-empty array' } }));
-				return;
-			}
-			if (command.domains.length > MAX_DOMAINS_PER_CONNECTION) {
-				socket.send(JSON.stringify({ event: 'error', data: { code: 'TOO_MANY_DOMAINS', message: `Maximum ${MAX_DOMAINS_PER_CONNECTION} domains per connection` } }));
+				socket.send(JSON.stringify({
+					event: 'error',
+					data: {
+						code: 'DOMAINS_REQUIRED',
+						message: 'domains must be a non-empty array'
+					}
+				}));
 				return;
 			}
 
-			const domains = [...new Set(command.domains.map(normalizeDomain).filter(Boolean))];
-			if (domains.length === 0) {
-				socket.send(JSON.stringify({ event: 'error', data: { code: 'INVALID_DOMAINS', message: 'No valid domains supplied' } }));
+			if (command.domains.length > MAX_DOMAINS_PER_CONNECTION) {
+				socket.send(JSON.stringify({
+					event: 'error',
+					data: {
+						code: 'TOO_MANY_DOMAINS',
+						message: `Maximum ${MAX_DOMAINS_PER_CONNECTION} domains per connection`
+					}
+				}));
 				return;
 			}
+
+			const domains = [...new Set(
+				command.domains.map(normalizeDomain).filter(Boolean)
+			)];
+
+			if (domains.length === 0) {
+				socket.send(JSON.stringify({
+					event: 'error',
+					data: {
+						code: 'INVALID_DOMAINS',
+						message: 'No valid domains supplied'
+					}
+				}));
+				return;
+			}
+
+			// 保存当前 WebSocket 连接的订阅域名
 			socket.serializeAttachment({ domains });
+
+			// 打印订阅成功日志
+			console.log("SUBSCRIBE_SUCCESS", {
+				domains,
+				count: domains.length
+			});
+
+			// 返回订阅成功消息
 			socket.send(JSON.stringify({
 				event: 'subscribed',
 				data: { domains },
 				timestamp: new Date().toISOString()
 			}));
+
 			return;
 		}
-
 		if (command?.action === 'unsubscribe') {
 			const current = readSubscriptions(socket);
 			const requested = Array.isArray(command.domains)

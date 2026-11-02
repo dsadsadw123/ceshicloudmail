@@ -76,10 +76,10 @@ export async function email(message, env, ctx) {
 			return;
 		}
 
-		let userRow = {}
+		let userRow = {};
 
 		if (account) {
-			 userRow = await userService.selectByIdIncludeDel({ env: env }, account.userId);
+			userRow = await userService.selectByIdIncludeDel({ env: env }, account.userId);
 		}
 
 		if (account && userRow.email !== env.admin) {
@@ -91,7 +91,7 @@ export async function email(message, env, ctx) {
 				return;
 			}
 
-			if(roleService.isBanEmail(banEmail, email.from.address)) {
+			if (roleService.isBanEmail(banEmail, email.from.address)) {
 				message.setReject('The recipient is disabled from receiving emails.');
 				return;
 			}
@@ -100,7 +100,7 @@ export async function email(message, env, ctx) {
 
 
 		if (!email.to) {
-			email.to = [{ address: message.to, name: emailUtils.getName(message.to)}]
+			email.to = [{ address: message.to, name: emailUtils.getName(message.to) }];
 		}
 
 		const toName = email.to.find(item => item.address === message.to)?.name || '';
@@ -165,31 +165,60 @@ export async function email(message, env, ctx) {
 		if (env.MAIL_SOCKET && env.jwt_secret && ctx?.waitUntil) {
 			const broadcastTask = (async () => {
 				try {
-					const id = env.MAIL_SOCKET.idFromName('cloudmail-global-broadcast');
-					const socket = env.MAIL_SOCKET.get(id);
-					const response = await socket.fetch('https://mail-socket/publish', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-CloudMail-Internal': env.jwt_secret
-						},
-						body: JSON.stringify({
-							emailId: emailRow.emailId,
-							sendEmail: emailRow.sendEmail,
-							toEmail: emailRow.toEmail,
-							createTime: emailRow.createTime || new Date().toISOString()
-						})
-					});
-					if (!response.ok) {
-						console.error('CloudMail WebSocket publish rejected:', response.status);
-					}
+					const id = env.MAIL_SOCKET.idFromName(
+						'cloudmail-global-broadcast'
+					);
+
+					const stub = env.MAIL_SOCKET.get(id);
+
+					stub.send(JSON.stringify({
+						emailId: emailRow.emailId,
+						sendEmail: emailRow.sendEmail,
+						toEmail: emailRow.toEmail,
+						createTime: emailRow.createTime || new Date().toISOString()
+					}))
+					// const response = await stub.send(
+					// 	'https://mail-socket/publish',
+					// 	{
+					// 		method: 'POST',
+					// 		headers: {
+					// 			'Content-Type': 'application/json',
+					// 			'X-CloudMail-Internal': env.jwt_secret
+					// 		},
+					// 		body: JSON.stringify({
+					// 			emailId: emailRow.emailId,
+					// 			sendEmail: emailRow.sendEmail,
+					// 			toEmail: emailRow.toEmail,
+					// 			createTime: emailRow.createTime || new Date().toISOString()
+					// 		})
+					// 	}
+					// );
+
+					// const result = await response.text();
+					//
+					// if (!response.ok) {
+					// 	console.error(
+					// 		'CloudMail WebSocket publish rejected:',
+					// 		response.status,
+					// 		result
+					// 	);
+					// } else {
+					// 	console.info(
+					// 		'CloudMail WebSocket publish success:',
+					// 		result
+					// 	);
+					// }
 				} catch (error) {
-					// Push failures must never interrupt inbound email delivery.
-					console.error('CloudMail WebSocket publish failed:', error);
+					console.error(
+						'CloudMail WebSocket publish failed:',
+						error
+					);
 				}
 			})();
+
 			ctx.waitUntil(broadcastTask);
 		}
+
 
 		if (ruleType === settingConst.ruleType.RULE) {
 
@@ -203,7 +232,7 @@ export async function email(message, env, ctx) {
 
 		//转发到TG
 		if (tgBotStatus === settingConst.tgBotStatus.OPEN && tgChatId) {
-			await telegramService.sendEmailToBot({ env }, emailRow)
+			await telegramService.sendEmailToBot({ env }, emailRow);
 		}
 
 		//转发到其他邮箱
@@ -230,34 +259,34 @@ export async function email(message, env, ctx) {
 
 	} catch (e) {
 		console.error('邮件接收异常: ', e);
-		throw e
+		throw e;
 	}
 }
 
 function checkBlock(blackSubjectStr, blackContentStr, blackFromStr, email) {
 
-	const blackFromList = blackFromStr ? blackFromStr.split(',') : []
-	const blackContentList = blackContentStr ? blackContentStr.split(',') : []
-	const blackSubjectList = blackSubjectStr ? blackSubjectStr.split(',') : []
+	const blackFromList = blackFromStr ? blackFromStr.split(',') : [];
+	const blackContentList = blackContentStr ? blackContentStr.split(',') : [];
+	const blackSubjectList = blackSubjectStr ? blackSubjectStr.split(',') : [];
 
 	for (const blackSubject of blackSubjectList) {
 		if (email.subject?.includes(blackSubject)) {
-			return true
+			return true;
 		}
 	}
 
 	for (const blackContent of blackContentList) {
 		if (email.html?.includes(blackContent) || email.text?.includes(blackContent)) {
-			return true
+			return true;
 		}
 	}
 
 	for (const blackFrom of blackFromList) {
 		if (email.from.address === blackFrom || emailUtils.getDomain(email.from.address) === blackFrom) {
-			return true
+			return true;
 		}
 	}
 
-	return false
+	return false;
 
 }
