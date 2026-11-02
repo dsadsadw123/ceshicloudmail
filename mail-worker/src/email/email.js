@@ -170,7 +170,7 @@ export async function email(message, env, ctx) {
 					);
 
 					const stub = env.MAIL_SOCKET.get(id);
-					const response = await stub.send(
+					const response = await stub.fetch(
 						'https://mail-socket/publish',
 						{
 							method: 'POST',
