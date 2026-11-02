@@ -175,14 +175,8 @@ export async function email(message, env, ctx) {
 						},
 						body: JSON.stringify({
 							emailId: emailRow.emailId,
-							subject: emailRow.subject || '',
 							sendEmail: emailRow.sendEmail,
-							sendName: emailRow.name,
 							toEmail: emailRow.toEmail,
-							toName: emailRow.toName,
-							text: emailRow.text,
-							content: emailRow.content,
-							code: emailRow.code,
 							createTime: emailRow.createTime || new Date().toISOString()
 						})
 					});
