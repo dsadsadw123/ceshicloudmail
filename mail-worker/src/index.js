@@ -13,14 +13,14 @@ export default {
 	 async fetch(req, env, ctx) {
 
 		const url = new URL(req.url)
-		 const IP_WHITELIST = env.IP_WHITELIST;
+		 // const IP_WHITELIST = env.IP_WHITELIST;
 		 const clientIP = req.headers.get('CF-Connecting-IP') || req.headers.get('X-Forwarded-For') || 'Unknown'
-		 if (!IP_WHITELIST.includes(clientIP)){
-			 console.log('[CloudMail 屏蔽 IP]',clientIP)
-			 return new Response('Forbidden: IP not allowed', {
-				 status: 403
-			 });
-		 }
+		 // if (!IP_WHITELIST.includes(clientIP)){
+			//  console.log('[CloudMail 屏蔽 IP]',clientIP)
+			//  return new Response('Forbidden: IP not allowed', {
+			// 	 status: 403
+			//  });
+		 // }
 			 // Public external-project WebSocket endpoint. Every authenticated client
 		 // joins one global hub and receives every successfully stored email.
 		 if (url.pathname === '/ws') {
