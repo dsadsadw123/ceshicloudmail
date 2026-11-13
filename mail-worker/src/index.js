@@ -13,8 +13,15 @@ export default {
 	 async fetch(req, env, ctx) {
 
 		const url = new URL(req.url)
-
-		 // Public external-project WebSocket endpoint. Every authenticated client
+		 const IP_WHITELIST = env.IP_WHITELIST;
+		 const clientIP = req.headers.get('CF-Connecting-IP') || req.headers.get('X-Forwarded-For') || 'Unknown'
+		 if (!IP_WHITELIST.includes(clientIP)){
+			 console.log('[CloudMail 屏蔽 IP]',clientIP)
+			 return new Response('Forbidden: IP not allowed', {
+				 status: 403
+			 });
+		 }
+			 // Public external-project WebSocket endpoint. Every authenticated client
 		 // joins one global hub and receives every successfully stored email.
 		 if (url.pathname === '/ws') {
 			 if (!env.MAIL_SOCKET || !env.jwt_secret) {
@@ -40,7 +47,7 @@ export default {
 		if (url.pathname.startsWith('/api/')) {
 			// 记录所有进入 CloudMail 的请求 IP 和请求路径
 			console.log('[CloudMail API 请求]', JSON.stringify({
-				ip: req.headers.get('CF-Connecting-IP') || req.headers.get('X-Forwarded-For') || 'Unknown',
+				ip: clientIP,
 				path: url.pathname,
 				method: req.method,
 				time: new Date().toISOString()
