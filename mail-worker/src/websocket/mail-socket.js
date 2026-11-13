@@ -84,7 +84,7 @@ export class MailSocket extends DurableObject {
 				return Response.json({ success: true, domain: null, connections: 0, message: 'Recipient domain unavailable' });
 			}
 
-			console.error('正在发送订阅',domain);
+			console.info('正在发送订阅',domain);
 			const message = JSON.stringify({
 				event: 'mail.received',
 				domain,
@@ -103,7 +103,7 @@ export class MailSocket extends DurableObject {
 				try {
 					socket.send(message);
 					connections++;
-					console.error('消息发送成功');
+					console.info('消息发送成功');
 				} catch (error) {
 					console.error('CloudMail WebSocket domain push failed:', error);
 				}

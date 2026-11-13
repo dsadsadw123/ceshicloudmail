@@ -38,6 +38,13 @@ export default {
 		 }
 
 		if (url.pathname.startsWith('/api/')) {
+			// 记录所有进入 CloudMail 的请求 IP 和请求路径
+			console.log('[CloudMail API 请求]', JSON.stringify({
+				ip: req.header('CF-Connecting-IP') || req.header('X-Forwarded-For') || 'Unknown',
+				path: url.pathname,
+				method: req.method,
+				time: new Date().toISOString()
+			}));
 			url.pathname = url.pathname.replace('/api', '')
 			req = new Request(url.toString(), req)
 			return app.fetch(req, env, ctx);
