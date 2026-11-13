@@ -45,6 +45,7 @@ export default {
 				method: req.method,
 				time: new Date().toISOString()
 			}));
+
 			url.pathname = url.pathname.replace('/api', '')
 			req = new Request(url.toString(), req)
 			return app.fetch(req, env, ctx);
